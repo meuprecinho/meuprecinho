@@ -1,0 +1,5 @@
+telebot
+requests
+undetected-chromedriver
+selenium
+webdriver-manager
