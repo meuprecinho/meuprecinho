@@ -42,6 +42,10 @@ def extrair_informacoes(link):
             titulo = soup.find('h1', {'data-testid': 'heading-product-title'}).text.strip() if soup.find('h1', {'data-testid': 'heading-product-title'}) else "Título não encontrado"
             preco = soup.find('p', {'data-testid': 'price-value'}).text.strip() if soup.find('p', {'data-testid': 'price-value'}) else "Preço não encontrado"
         
+        elif "paguemenos.com.br" in link:  # Adiciona suporte para Pague Menos
+            titulo = soup.find('h1', {'class': 'product-name'}).text.strip() if soup.find('h1', {'class': 'product-name'}) else "Título não encontrado"
+            preco = soup.find('span', {'class': 'price'}).text.strip() if soup.find('span', {'class': 'price'}) else "Preço não encontrado"
+
         else:
             titulo = "Título não encontrado"
             preco = "Preço não encontrado"
