@@ -21,9 +21,30 @@ def extrair_informacoes(link):
         response = requests.get(link, headers=headers)
         soup = BeautifulSoup(response.content, 'html.parser')
 
-        # Exemplo: Ajuste os seletores de acordo com a estrutura do site
-        titulo = soup.find('title').text.strip()
-        preco = soup.find(class_='price').text.strip()  # Ajuste o seletor conforme necessário
+        # Identificar e extrair informações dependendo da loja
+        if "amazon.com.br" in link:
+            titulo = soup.find(id='productTitle').text.strip() if soup.find(id='productTitle') else "Título não encontrado"
+            preco = soup.find('span', {'class': 'a-price-whole'}).text.strip() if soup.find('span', {'class': 'a-price-whole'}) else "Preço não encontrado"
+        
+        elif "mercadolivre.com.br" in link:
+            titulo = soup.find('h1', {'class': 'ui-pdp-title'}).text.strip() if soup.find('h1', {'class': 'ui-pdp-title'}) else "Título não encontrado"
+            preco = soup.find('span', {'class': 'price-tag-fraction'}).text.strip() if soup.find('span', {'class': 'price-tag-fraction'}) else "Preço não encontrado"
+        
+        elif "shopee.com.br" in link:
+            titulo = soup.find('div', {'class': 'qaNIZv'}).text.strip() if soup.find('div', {'class': 'qaNIZv'}) else "Título não encontrado"
+            preco = soup.find('div', {'class': 'vioxXd'}).text.strip() if soup.find('div', {'class': 'vioxXd'}) else "Preço não encontrado"
+        
+        elif "shein.com.br" in link:
+            titulo = soup.find('h1', {'class': 'product-intro__head-name'}).text.strip() if soup.find('h1', {'class': 'product-intro__head-name'}) else "Título não encontrado"
+            preco = soup.find('span', {'class': 'normal-price'}).text.strip() if soup.find('span', {'class': 'normal-price'}) else "Preço não encontrado"
+        
+        elif "magazinevoce.com.br" in link or "magazineluiza.com.br" in link:
+            titulo = soup.find('h1', {'data-testid': 'heading-product-title'}).text.strip() if soup.find('h1', {'data-testid': 'heading-product-title'}) else "Título não encontrado"
+            preco = soup.find('p', {'data-testid': 'price-value'}).text.strip() if soup.find('p', {'data-testid': 'price-value'}) else "Preço não encontrado"
+        
+        else:
+            titulo = "Título não encontrado"
+            preco = "Preço não encontrado"
 
         return f"Título: {titulo}\nPreço: {preco}\nLink: {link}"
     except Exception as e:
