@@ -3,7 +3,7 @@ from flask import Flask
 import os
 import threading
 
-TOKEN = "SEU_TOKEN_AQUI"
+TOKEN = "7939579434:AAG6U4ZfG8EGKooZtr6yJ_GAZ8YWvnQp5n0"
 bot = telebot.TeleBot(TOKEN)
 
 app = Flask(__name__)
@@ -23,6 +23,6 @@ def start_bot():
 threading.Thread(target=start_bot).start()
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 10000))  # FORÇANDO A PORTA 10000
     app.run(host="0.0.0.0", port=port)
 
