@@ -3,3 +3,4 @@ requests
 undetected-chromedriver
 selenium
 webdriver-manager
+Flask
