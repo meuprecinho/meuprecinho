@@ -1,132 +1,85 @@
 import telebot
+from flask import Flask
+import os
+import threading
 import requests
-import undetected_chromedriver as uc
+from bs4 import BeautifulSoup
+from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.action_chains import ActionChains
 from webdriver_manager.chrome import ChromeDriverManager
-import time
-import os
 
-# Sua chave de API do Telegram
-TOKEN = '7939579434:AAFyEN7D5XpRAjOWoAt-HrrJxjDuSua723s'  # Chave API inserida
+TOKEN = "7939579434:AAG6U4ZfG8EGKooZtr6yJ_GAZ8YWvnQp5n0"
 bot = telebot.TeleBot(TOKEN)
 
-# Função para capturar as informações do produto
-def buscar_informacoes(link, chat_id):
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot está rodando!"
+
+# Formatar mensagem promocional
+
+def formatar_mensagem(nome, preco_antigo, preco_atual, frete, avaliacao, link, loja):
+    cupom = "\n🔖 **Cupom de desconto:** **meuprecinho** 🏷️" if "paguemenos.com.br" in loja else ""
+    return (f"🔥 **OFERTA IMPERDÍVEL!** 🔥\n\n"
+            f"🛒 **Produto:** {nome}\n"
+            f"💰 **De:** R${preco_antigo} **Por:** R${preco_atual}\n"
+            f"🚚 **Frete:** {frete}\n\n"
+            f"⭐ **Avaliação:** {avaliacao} ⭐\n"
+            f"📉 **Desconto válido por tempo limitado!**\n\n"
+            f"🔗 **Compre agora:** {link}\n"
+            f"⚠️ **Estoque limitado!** Garanta o seu antes que acabe!{cupom}")
+
+# Função para extrair informações de um produto
+def extrair_informacoes(link):
     try:
-        # Enviar mensagem de "Buscando dados do produto..."
-        bot.send_message(chat_id, "Buscando dados do produto...🔍🛍️")
+        headers = {"User-Agent": "Mozilla/5.0"}
+        response = requests.get(link, headers=headers)
+        soup = BeautifulSoup(response.content, 'html.parser')
 
-        # Configurações do Chrome
-        options = Options()
-        options.add_argument("--headless")  # Roda o navegador em modo invisível
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        driver = uc.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-        driver.get(link)
+        titulo, preco_antigo, preco_atual, frete, avaliacao = "Não encontrado", "-", "-", "Consultar", "-"
+
+        if "amazon.com.br" in link:
+            titulo = soup.find(id='productTitle').text.strip() if soup.find(id='productTitle') else titulo
+            preco_atual = soup.find('span', {'class': 'a-price-whole'}).text.strip() if soup.find('span', {'class': 'a-price-whole'}) else preco_atual
+            avaliacao = soup.find('span', {'class': 'a-icon-alt'}).text.strip() if soup.find('span', {'class': 'a-icon-alt'}) else avaliacao
         
-        # Esperar o carregamento da página
-        time.sleep(3)
-
-        # Scraping do nome do produto
-        try:
-            nome_produto = driver.find_element(By.CSS_SELECTOR, "h1[data-testid='heading-product-title']").text
-        except Exception as e:
-            nome_produto = "Nome não encontrado"
-            print(f"Erro ao capturar nome do produto: {e}")
-
-        # Scraping do preço original
-        try:
-            preco_original = driver.find_element(By.CSS_SELECTOR, "p[data-testid='price-original']").text
-        except Exception as e:
-            preco_original = "Preço original não encontrado"
-            print(f"Erro ao capturar preço original: {e}")
-
-        # Scraping do preço com desconto
-        try:
-            preco_com_desconto = driver.find_element(By.CSS_SELECTOR, "p[data-testid='price-value']").text
-        except Exception as e:
-            preco_com_desconto = "Preço com desconto não encontrado"
-            print(f"Erro ao capturar preço com desconto: {e}")
-
-        # Scraping do parcelamento
-        try:
-            parcelamento_element = driver.find_elements(By.CSS_SELECTOR, "p[data-testid='installment']")
-            parcelamento = parcelamento_element[0].text if parcelamento_element else None
-        except Exception as e:
-            parcelamento = None
-            print(f"Erro ao capturar parcelamento: {e}")
-
-        # Scraping do cupom (se disponível)
-        try:
-            cupom_element = driver.find_elements(By.CSS_SELECTOR, "span[data-testid='coupon-code']")
-            cupom = cupom_element[0].text if cupom_element else "Cupom não disponível"
-        except Exception as e:
-            cupom = "Cupom não disponível"
-            print(f"Erro ao capturar cupom: {e}")
-
-        # Scraping da imagem do produto
-        try:
-            # Tentativa de capturar imagem de alta qualidade
-            imagem_url_element = driver.find_element(By.CSS_SELECTOR, "img[data-testid='media-gallery-image']")
-            imagem_url = imagem_url_element.get_attribute('src').replace("90x90", "500x500")
-        except Exception as e:
-            imagem_url = "Imagem não encontrada"
-            print(f"Erro ao capturar imagem: {e}")
-
-        # Baixar a imagem em alta qualidade
-        if imagem_url != "Imagem não encontrada":
-            imagem_resposta = requests.get(imagem_url)
-            if imagem_resposta.status_code == 200:
-                with open("produto.jpg", "wb") as file:
-                    file.write(imagem_resposta.content)
-                imagem_url = "produto.jpg"  # Atualizando a imagem_url para o caminho do arquivo
-
-        # Fechar o navegador corretamente
-        driver.quit()
-
-        # Formatando a mensagem a ser enviada
-        msg = (f"🛍️ {nome_produto}\n\n"
-               f"~de R$ {preco_original}~\n"
-               f"💸 por R$ {preco_com_desconto} 🚨🚨\n")
-
-        # Adicionando parcelamento se disponível
-        if parcelamento:
-            msg += f"💳 {parcelamento} sem juros\n\n"
-
-        msg += (f"👉Link p/ comprar: {link}\n\n"
-                f"*Promoção sujeita a alteração a qualquer momento")
-
-        # Enviando a mensagem com a imagem do produto
-        return imagem_url, msg
-
+        elif "mercadolivre.com.br" in link:
+            titulo = soup.find('h1', {'class': 'ui-pdp-title'}).text.strip() if soup.find('h1', {'class': 'ui-pdp-title'}) else titulo
+            preco_atual = soup.find('span', {'class': 'price-tag-fraction'}).text.strip() if soup.find('span', {'class': 'price-tag-fraction'}) else preco_atual
+        
+        elif "shopee.com.br" in link:
+            titulo = soup.find('div', {'class': 'qaNIZv'}).text.strip() if soup.find('div', {'class': 'qaNIZv'}) else titulo
+            preco_atual = soup.find('div', {'class': 'vioxXd'}).text.strip() if soup.find('div', {'class': 'vioxXd'}) else preco_atual
+        
+        elif "paguemenos.com.br" in link:
+            titulo = soup.find('h1', {'class': 'product-name'}).text.strip() if soup.find('h1', {'class': 'product-name'}) else titulo
+            preco_atual = soup.find('span', {'class': 'price'}).text.strip() if soup.find('span', {'class': 'price'}) else preco_atual
+        
+        return formatar_mensagem(titulo, preco_antigo, preco_atual, frete, avaliacao, link, link)
     except Exception as e:
-        print(f"Ocorreu um erro ao buscar as informações do produto: {e}")
-        return None, "Erro ao buscar informações do produto."
+        return f"Erro ao processar o link: {e}"
 
-    finally:
-        if driver:
-            driver.quit()
+# Tratamento de mensagens com links
+@bot.message_handler(func=lambda message: "http" in message.text)
+def processar_link(message):
+    link = message.text.strip()
+    bot.reply_to(message, "⏳ Processando a oferta, aguarde...")
+    informacoes = extrair_informacoes(link)
+    bot.reply_to(message, informacoes)
 
-# Função para responder ao comando do Telegram
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    bot.reply_to(message, "Olá! Envie um link de produto para eu buscar as informações.")
+    bot.reply_to(message, "Olá! Envie um link de produto ou loja para eu buscar as informações.")
 
-# Função para lidar com mensagens de texto (links)
-@bot.message_handler(func=lambda message: True)
-def handle_message(message):
-    link = message.text
-    chat_id = message.chat.id
-    imagem_url, msg = buscar_informacoes(link, chat_id)
-    
-    if imagem_url and os.path.exists(imagem_url):
-        with open(imagem_url, 'rb') as photo:
-            bot.send_photo(message.chat.id, photo, caption=msg, parse_mode='Markdown')
-    else:
-        bot.reply_to(message, msg)
+# Inicia o bot em uma thread separada
+def start_bot():
+    bot.polling(none_stop=True)
 
-# Iniciar o bot
-bot.polling()
+threading.Thread(target=start_bot).start()
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))  # FORÇANDO A PORTA 10000
+    app.run(host="0.0.0.0", port=port)
